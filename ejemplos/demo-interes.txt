@@ -1,0 +1,29 @@
+INTERES SIMPLE
+  Capital                       10,000.000000
+  Tasa                  0.080000000000
+  Tiempo                2.500000
+  Interes                        2,000.000000
+  Valor futuro                  12,000.000000
+  Codigo            00
+ 
+INTERES COMPUESTO
+  Capital                       10,000.000000
+  Tasa                  0.080000000000
+  Periodos              10
+  Valor futuro                  21,589.249973
+  Interes                       11,589.249973
+  Codigo            00
+ 
+VALOR PRESENTE
+  Valor futuro                  20,000.000000
+  Tasa                  0.060000000000
+  Periodos               5
+  Valor presente                14,945.163457
+  Codigo            00
+ 
+TASA EFECTIVA Y NOMINAL
+  Nominal anual         0.120000000000
+  Capitalizaciones      12
+  Efectiva anual        0.126825030132
+  Nominal recuperada    0.120000000000
+  Codigo            00

@@ -1,0 +1,104 @@
+>>SOURCE FORMAT FREE
+*> Demostración de interés, valor presente/futuro y tasas.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. demo-interes.
+
+ENVIRONMENT DIVISION.
+
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "fin-interes.cpy".
+01 ED-IMP                     PIC --,---,---,---,--9.9(6).
+01 ED-TASA                    PIC -(4)9.9(12).
+01 ED-TIEMPO                  PIC ----9.9(6).
+01 ED-N                       PIC Z(5)9.
+
+PROCEDURE DIVISION.
+0000-MAIN.
+    DISPLAY "INTERES SIMPLE"
+    INITIALIZE FI-PARAMS
+    MOVE "SIMP" TO FI-OPERACION
+    MOVE 10000 TO FI-CAPITAL
+    MOVE 0.08 TO FI-TASA
+    MOVE 2.5 TO FI-TIEMPO
+    CALL "fin-interes" USING FI-PARAMS
+    PERFORM 1000-MOSTRAR-SIMPLE
+
+    DISPLAY " "
+    DISPLAY "INTERES COMPUESTO"
+    INITIALIZE FI-PARAMS
+    MOVE "COMP" TO FI-OPERACION
+    MOVE 10000 TO FI-CAPITAL
+    MOVE 0.08 TO FI-TASA
+    MOVE 10 TO FI-PERIODOS
+    CALL "fin-interes" USING FI-PARAMS
+    PERFORM 1100-MOSTRAR-COMPUESTO
+
+    DISPLAY " "
+    DISPLAY "VALOR PRESENTE"
+    INITIALIZE FI-PARAMS
+    MOVE "VPRE" TO FI-OPERACION
+    MOVE 20000 TO FI-VALOR-FUTURO
+    MOVE 0.06 TO FI-TASA
+    MOVE 5 TO FI-PERIODOS
+    CALL "fin-interes" USING FI-PARAMS
+    MOVE FI-VALOR-FUTURO TO ED-IMP
+    DISPLAY "  Valor futuro      " ED-IMP
+    MOVE FI-TASA TO ED-TASA
+    DISPLAY "  Tasa              " ED-TASA
+    MOVE FI-PERIODOS TO ED-N
+    DISPLAY "  Periodos          " ED-N
+    MOVE FI-VALOR-PRESENTE TO ED-IMP
+    DISPLAY "  Valor presente    " ED-IMP
+    DISPLAY "  Codigo            " FI-CODIGO
+
+    DISPLAY " "
+    DISPLAY "TASA EFECTIVA Y NOMINAL"
+    INITIALIZE FI-PARAMS
+    MOVE "EFEC" TO FI-OPERACION
+    MOVE 0.12 TO FI-TASA
+    MOVE 12 TO FI-CAPITALIZACIONES
+    CALL "fin-interes" USING FI-PARAMS
+    MOVE 0.12 TO ED-TASA
+    DISPLAY "  Nominal anual     " ED-TASA
+    MOVE FI-CAPITALIZACIONES TO ED-N
+    DISPLAY "  Capitalizaciones  " ED-N
+    MOVE FI-TASA-SALIDA TO ED-TASA
+    DISPLAY "  Efectiva anual    " ED-TASA
+    MOVE "NOMI" TO FI-OPERACION
+    MOVE FI-TASA-SALIDA TO FI-TASA
+    CALL "fin-interes" USING FI-PARAMS
+    MOVE FI-TASA-SALIDA TO ED-TASA
+    DISPLAY "  Nominal recuperada" ED-TASA
+    DISPLAY "  Codigo            " FI-CODIGO
+    STOP RUN.
+
+1000-MOSTRAR-SIMPLE.
+    MOVE FI-CAPITAL TO ED-IMP
+    DISPLAY "  Capital           " ED-IMP
+    MOVE FI-TASA TO ED-TASA
+    DISPLAY "  Tasa              " ED-TASA
+    MOVE FI-TIEMPO TO ED-TIEMPO
+    DISPLAY "  Tiempo            " ED-TIEMPO
+    MOVE FI-INTERES TO ED-IMP
+    DISPLAY "  Interes           " ED-IMP
+    MOVE FI-VALOR-FUTURO TO ED-IMP
+    DISPLAY "  Valor futuro      " ED-IMP
+    DISPLAY "  Codigo            " FI-CODIGO
+    .
+
+1100-MOSTRAR-COMPUESTO.
+    MOVE FI-CAPITAL TO ED-IMP
+    DISPLAY "  Capital           " ED-IMP
+    MOVE FI-TASA TO ED-TASA
+    DISPLAY "  Tasa              " ED-TASA
+    MOVE FI-PERIODOS TO ED-N
+    DISPLAY "  Periodos          " ED-N
+    MOVE FI-VALOR-FUTURO TO ED-IMP
+    DISPLAY "  Valor futuro      " ED-IMP
+    MOVE FI-INTERES TO ED-IMP
+    DISPLAY "  Interes           " ED-IMP
+    DISPLAY "  Codigo            " FI-CODIGO
+    .
+
+END PROGRAM demo-interes.
