@@ -1,0 +1,13 @@
+ANUALIDAD ORDINARIA — VALOR PRESENTE
+  Cuota                          1,500.000000
+  Tasa periodica        0.005000000000
+  Periodos             240
+  Valor presente               209,371.157524
+  Codigo            00
+ 
+ANUALIDAD ANTICIPADA — VALOR FUTURO
+  Cuota                          2,000.000000
+  Tasa periodica        0.004000000000
+  Periodos              36
+  Valor futuro                  77,585.321786
+  Codigo            00

@@ -1,0 +1,3 @@
+*.cbl linguist-language=COBOL
+*.cpy linguist-language=COBOL
+*.cob linguist-language=COBOL

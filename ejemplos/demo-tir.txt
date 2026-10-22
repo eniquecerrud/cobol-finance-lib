@@ -1,0 +1,13 @@
+PROYECTO
+  Tasa de descuento     0.080000000000
+  VPN                           22,614.269505
+  TIR                   0.170936863395
+  Metodo            N
+  Iteraciones            5
+  VPN residual                       0.000000
+  Codigo            00
+ 
+BONO A UN PERIODO
+  TIR                   0.100000000000
+  VPN residual                       0.000000
+  Codigo            00

@@ -1,0 +1,23 @@
+# Lote de demostración. Tasas en forma decimal (0.045 = 4,5 %).
+# PRESTAMO|id|capital|tasa_anual_nominal|periodos_por_ano|plazos|metodo
+#   metodo F = francés (cuota fija), G = alemán (capital constante)
+#   la tasa del periodo es nominal / periodos_por_ano
+PRESTAMO|MES-12|12000.00|0.12|12|12|F
+PRESTAMO|MES-12G|12000.00|0.12|12|12|G
+PRESTAMO|HIP-001|250000.00|0.045|12|360|F
+PRESTAMO|AUTO-002|18000.00|0.069|12|48|G
+
+# FLUJO|id|tasa_descuento|tolerancia|max_iter|importes separados por ;
+#   el primer importe es el periodo 0
+FLUJO|PROY-A|0.08|0.000000001|80|-100000;30000;35000;40000;45000
+FLUJO|BONO-1|0.10|0.000000001|40|-1000;1100
+
+# ANUALIDAD|id|cuota|tasa_periodica|periodos|O_o_A|PV_o_FV
+ANUALIDAD|PENSION|1500|0.005|240|O|PV
+ANUALIDAD|ALQUILER|2000|0.004|36|A|FV
+
+# DEPRECIACION|id|costo|residual|vida|tasa|LIN_DEC_o_DSD
+#   en DSD la tasa informada se ignora y se usa 2/vida
+DEPRECIACION|MAQ-1|15000|1500|5|0|LIN
+DEPRECIACION|VEH-1|30000|5000|5|0|DSD
+DEPRECIACION|EQ-2|8000|500|4|0.25|DEC

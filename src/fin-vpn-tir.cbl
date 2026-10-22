@@ -1,0 +1,378 @@
+>>SOURCE FORMAT FREE
+*> VPN y TIR. Newton-Raphson con bisección de reserva.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. fin-vpn-tir IS INITIAL.
+
+ENVIRONMENT DIVISION.
+
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "fin-estado.cpy".
+
+01 WS-R                       PIC S9(6)V9(16) COMP-3.
+01 WS-R-NUEVA                 PIC S9(6)V9(16) COMP-3.
+01 WS-DELTA                   PIC S9(6)V9(16) COMP-3.
+01 WS-VPN                     PIC S9(20)V9(16) COMP-3.
+01 WS-DER                     PIC S9(20)V9(16) COMP-3.
+01 WS-POT                     PIC S9(20)V9(16) COMP-3.
+01 WS-UNO-MAS                 PIC S9(6)V9(16) COMP-3.
+01 WS-TOL                     PIC S9(6)V9(16) COMP-3.
+01 WS-TOL-VPN                 PIC S9(20)V9(16) COMP-3.
+01 WS-SUMA-ABS                PIC S9(20)V9(6) COMP-3.
+01 WS-LOW                     PIC S9(6)V9(16) COMP-3.
+01 WS-HIGH                    PIC S9(6)V9(16) COMP-3.
+01 WS-NPV-LOW                 PIC S9(20)V9(16) COMP-3.
+01 WS-MID                     PIC S9(6)V9(16) COMP-3.
+01 WS-PREV-R                  PIC S9(6)V9(16) COMP-3.
+01 WS-PREV-NPV                PIC S9(20)V9(16) COMP-3.
+01 WS-TASA-EVAL               PIC S9(6)V9(16) COMP-3.
+01 WS-PUNTOS OCCURS 24 TIMES  PIC S9(6)V9(4) COMP-3.
+01 WS-N-PUNTOS                PIC 99 VALUE 23.
+01 WS-HAY-POS                 PIC 9 VALUE 0.
+01 WS-HAY-NEG                 PIC 9 VALUE 0.
+01 WS-CONVERGIO               PIC 9 VALUE 0.
+01 WS-FALLO-EVAL              PIC 9 VALUE 0.
+01 WS-TIENE-PREV              PIC 9 VALUE 0.
+01 WS-ITER                    PIC 9(5) COMP-5.
+01 WS-MAX                     PIC 9(5) COMP-5.
+01 WS-T                       PIC 9(5) COMP-5.
+01 WS-IDX                     PIC 9(5) COMP-5.
+01 WS-PUNTO                   PIC 9(5) COMP-5.
+01 WS-TIEMPO                  PIC 9(5) COMP-5.
+01 WS-METODO                  PIC X.
+
+LINKAGE SECTION.
+COPY "fin-vpn-tir.cpy".
+
+PROCEDURE DIVISION USING FT-PARAMS.
+0000-MAIN.
+    PERFORM 1000-INICIALIZAR
+    MOVE FUNCTION UPPER-CASE(FT-OPERACION) TO FT-OPERACION
+    EVALUATE FT-OPERACION
+        WHEN "VPN"
+            PERFORM 2000-VPN
+        WHEN "TIR"
+            PERFORM 3000-TIR
+        WHEN OTHER
+            MOVE FIN-ERR-OPERACION TO FT-CODIGO
+            MOVE "Operacion desconocida en fin-vpn-tir" TO FT-MENSAJE
+    END-EVALUATE
+    GOBACK.
+
+1000-INICIALIZAR.
+    MOVE FIN-OK TO FT-CODIGO
+    MOVE SPACES TO FT-MENSAJE FT-METODO
+    MOVE 0 TO FT-VPN FT-TIR FT-ITERACIONES
+    MOVE 0 TO WS-CONVERGIO
+    MOVE "N" TO WS-METODO
+    .
+
+2000-VPN.
+    PERFORM 4000-VALIDAR-SERIE
+    IF FT-CODIGO NOT = FIN-OK
+        EXIT PARAGRAPH
+    END-IF
+    IF FT-TASA <= -1
+        MOVE FIN-ERR-TASA TO FT-CODIGO
+        MOVE "Tasa menor o igual que -1" TO FT-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    MOVE FT-TASA TO WS-TASA-EVAL
+    PERFORM 5000-EVALUAR
+    IF WS-FALLO-EVAL = 1
+        MOVE FIN-ERR-DESBORDAMIENTO TO FT-CODIGO
+        MOVE "Desbordamiento al evaluar la VPN" TO FT-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE FT-VPN ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+        = WS-VPN
+        ON SIZE ERROR
+            MOVE FIN-ERR-DESBORDAMIENTO TO FT-CODIGO
+            MOVE "Desbordamiento en la VPN" TO FT-MENSAJE
+            EXIT PARAGRAPH
+    END-COMPUTE
+    MOVE "Valor actual neto" TO FT-MENSAJE
+    .
+
+3000-TIR.
+    PERFORM 4000-VALIDAR-SERIE
+    IF FT-CODIGO NOT = FIN-OK
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM 4100-SIGNOS
+    IF FT-CODIGO NOT = FIN-OK
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM 4200-TOLERANCIA
+    IF FT-CODIGO NOT = FIN-OK
+        EXIT PARAGRAPH
+    END-IF
+    MOVE FUNCTION UPPER-CASE(FT-ESTRATEGIA) TO FT-ESTRATEGIA
+    IF FT-ESTRATEGIA = SPACE
+        MOVE "N" TO FT-ESTRATEGIA
+    END-IF
+    IF FT-ESTRATEGIA NOT = "N"
+        AND FT-ESTRATEGIA NOT = "W"
+        AND FT-ESTRATEGIA NOT = "B"
+        MOVE FIN-ERR-ARGUMENTO TO FT-CODIGO
+        MOVE "Estrategia de TIR: N, W o B" TO FT-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    IF FT-ESTRATEGIA = "B"
+        PERFORM 7000-BISECCION
+    ELSE
+        PERFORM 6000-NEWTON
+        IF WS-CONVERGIO = 0 AND FT-ESTRATEGIA = "N"
+            PERFORM 7000-BISECCION
+        END-IF
+    END-IF
+    IF WS-CONVERGIO = 1
+        COMPUTE FT-TIR ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = WS-R
+            ON SIZE ERROR
+                MOVE FIN-ERR-DESBORDAMIENTO TO FT-CODIGO
+                MOVE "Desbordamiento al guardar la TIR" TO FT-MENSAJE
+                EXIT PARAGRAPH
+        END-COMPUTE
+        COMPUTE FT-VPN ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = WS-VPN
+        MOVE WS-ITER TO FT-ITERACIONES
+        MOVE WS-METODO TO FT-METODO
+        MOVE "Tasa interna de retorno" TO FT-MENSAJE
+    ELSE
+        IF FT-CODIGO = FIN-OK
+            MOVE FIN-ERR-CONVERGENCIA TO FT-CODIGO
+            MOVE "La TIR no convergio" TO FT-MENSAJE
+        END-IF
+    END-IF
+    .
+
+4000-VALIDAR-SERIE.
+    IF FT-NUM-FLUJOS < 1 OR FT-NUM-FLUJOS > FIN-MAX-PERIODOS
+        MOVE FIN-ERR-SERIE TO FT-CODIGO
+        MOVE "Serie de flujos vacia o demasiado larga" TO FT-MENSAJE
+    END-IF
+    .
+
+4100-SIGNOS.
+    MOVE 0 TO WS-HAY-POS WS-HAY-NEG WS-SUMA-ABS
+    PERFORM VARYING WS-IDX FROM 1 BY 1 UNTIL WS-IDX > FT-NUM-FLUJOS
+        IF FT-FLUJO(WS-IDX) > 0
+            MOVE 1 TO WS-HAY-POS
+        END-IF
+        IF FT-FLUJO(WS-IDX) < 0
+            MOVE 1 TO WS-HAY-NEG
+        END-IF
+        COMPUTE WS-SUMA-ABS = WS-SUMA-ABS + FUNCTION ABS(FT-FLUJO(WS-IDX))
+    END-PERFORM
+    IF WS-HAY-POS = 0 OR WS-HAY-NEG = 0
+        MOVE FIN-ERR-SIGNO TO FT-CODIGO
+        MOVE "Sin cambio de signo en la serie" TO FT-MENSAJE
+    END-IF
+    .
+
+4200-TOLERANCIA.
+    IF FT-TOLERANCIA < 0
+        MOVE FIN-ERR-ARGUMENTO TO FT-CODIGO
+        MOVE "La tolerancia de la TIR es negativa" TO FT-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    IF FT-TOLERANCIA = 0
+        MOVE 0.000000001 TO WS-TOL
+    ELSE
+        MOVE FT-TOLERANCIA TO WS-TOL
+    END-IF
+    IF FT-MAX-ITER = 0
+        MOVE 80 TO WS-MAX
+    ELSE
+        MOVE FT-MAX-ITER TO WS-MAX
+    END-IF
+    COMPUTE WS-TOL-VPN ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+        = WS-SUMA-ABS * WS-TOL
+    IF WS-TOL-VPN < 0.000001
+        MOVE 0.000001 TO WS-TOL-VPN
+    END-IF
+    .
+
+5000-EVALUAR.
+    MOVE 0 TO WS-VPN WS-DER WS-FALLO-EVAL
+    MOVE 1 TO WS-POT
+    COMPUTE WS-UNO-MAS ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+        = 1 + WS-TASA-EVAL
+    IF WS-UNO-MAS <= 0
+        MOVE 1 TO WS-FALLO-EVAL
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING WS-IDX FROM 1 BY 1 UNTIL WS-IDX > FT-NUM-FLUJOS
+        IF WS-POT = 0
+            MOVE 1 TO WS-FALLO-EVAL
+            EXIT PERFORM
+        END-IF
+        COMPUTE WS-TIEMPO = WS-IDX - 1
+        COMPUTE WS-VPN ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = WS-VPN + (FT-FLUJO(WS-IDX) / WS-POT)
+            ON SIZE ERROR
+                MOVE 1 TO WS-FALLO-EVAL
+                EXIT PERFORM
+        END-COMPUTE
+        IF WS-TIEMPO > 0
+            COMPUTE WS-DER ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+                = WS-DER + (-1 * WS-TIEMPO * FT-FLUJO(WS-IDX)
+                    / (WS-POT * WS-UNO-MAS))
+                ON SIZE ERROR
+                    MOVE 1 TO WS-FALLO-EVAL
+                    EXIT PERFORM
+            END-COMPUTE
+        END-IF
+        IF WS-IDX < FT-NUM-FLUJOS
+            COMPUTE WS-POT ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+                = WS-POT * WS-UNO-MAS
+                ON SIZE ERROR
+                    MOVE 1 TO WS-FALLO-EVAL
+                    EXIT PERFORM
+            END-COMPUTE
+        END-IF
+    END-PERFORM
+    .
+
+6000-NEWTON.
+    IF FT-TASA <= -1
+        MOVE 0.10 TO WS-R
+    ELSE
+        MOVE FT-TASA TO WS-R
+    END-IF
+    MOVE 0 TO WS-ITER
+    MOVE "N" TO WS-METODO
+    MOVE WS-R TO WS-TASA-EVAL
+    PERFORM 5000-EVALUAR
+    IF WS-FALLO-EVAL = 0 AND WS-VPN = 0
+        MOVE 1 TO WS-CONVERGIO
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING WS-ITER FROM 1 BY 1 UNTIL WS-ITER > WS-MAX
+        MOVE WS-R TO WS-TASA-EVAL
+        PERFORM 5000-EVALUAR
+        IF WS-FALLO-EVAL = 1
+            EXIT PERFORM
+        END-IF
+        IF WS-VPN = 0
+            MOVE 1 TO WS-CONVERGIO
+            EXIT PERFORM
+        END-IF
+        IF FUNCTION ABS(WS-DER) < 0.000000000001
+            EXIT PERFORM
+        END-IF
+        COMPUTE WS-DELTA ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = WS-VPN / WS-DER
+            ON SIZE ERROR
+                EXIT PERFORM
+        END-COMPUTE
+        IF FUNCTION ABS(WS-DELTA) > 0.5
+            IF WS-DELTA > 0
+                COMPUTE WS-R-NUEVA = WS-R - 0.5
+            ELSE
+                COMPUTE WS-R-NUEVA = WS-R + 0.5
+            END-IF
+        ELSE
+            COMPUTE WS-R-NUEVA ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+                = WS-R - WS-DELTA
+        END-IF
+        IF WS-R-NUEVA <= -0.999999999999 OR WS-R-NUEVA > 5000
+            EXIT PERFORM
+        END-IF
+        IF FUNCTION ABS(WS-R-NUEVA - WS-R) <= WS-TOL
+            MOVE WS-R-NUEVA TO WS-R
+            MOVE WS-R TO WS-TASA-EVAL
+            PERFORM 5000-EVALUAR
+            IF WS-FALLO-EVAL = 0
+                AND FUNCTION ABS(WS-VPN) <= WS-TOL-VPN
+                MOVE 1 TO WS-CONVERGIO
+            END-IF
+            EXIT PERFORM
+        END-IF
+        MOVE WS-R-NUEVA TO WS-R
+    END-PERFORM
+    .
+
+7000-BISECCION.
+    PERFORM 7100-CARGAR-REJILLA
+    MOVE 0 TO WS-TIENE-PREV WS-CONVERGIO
+    MOVE "B" TO WS-METODO
+    MOVE 0 TO WS-ITER
+    PERFORM VARYING WS-PUNTO FROM 1 BY 1 UNTIL WS-PUNTO > WS-N-PUNTOS
+        MOVE WS-PUNTOS(WS-PUNTO) TO WS-TASA-EVAL
+        PERFORM 5000-EVALUAR
+        IF WS-FALLO-EVAL = 0
+            IF WS-VPN = 0
+                MOVE WS-TASA-EVAL TO WS-R
+                MOVE 1 TO WS-CONVERGIO
+                EXIT PERFORM
+            END-IF
+            IF WS-TIENE-PREV = 1
+                IF (WS-PREV-NPV > 0 AND WS-VPN < 0)
+                    OR (WS-PREV-NPV < 0 AND WS-VPN > 0)
+                    MOVE WS-PREV-R TO WS-LOW
+                    MOVE WS-PREV-NPV TO WS-NPV-LOW
+                    MOVE WS-TASA-EVAL TO WS-HIGH
+                    PERFORM 7200-PARTIR
+                    EXIT PERFORM
+                END-IF
+            END-IF
+            MOVE WS-TASA-EVAL TO WS-PREV-R
+            MOVE WS-VPN TO WS-PREV-NPV
+            MOVE 1 TO WS-TIENE-PREV
+        END-IF
+    END-PERFORM
+    .
+
+7100-CARGAR-REJILLA.
+    MOVE -0.99 TO WS-PUNTOS(1)
+    MOVE -0.90 TO WS-PUNTOS(2)
+    MOVE -0.50 TO WS-PUNTOS(3)
+    MOVE -0.20 TO WS-PUNTOS(4)
+    MOVE -0.10 TO WS-PUNTOS(5)
+    MOVE -0.05 TO WS-PUNTOS(6)
+    MOVE -0.01 TO WS-PUNTOS(7)
+    MOVE 0 TO WS-PUNTOS(8)
+    MOVE 0.01 TO WS-PUNTOS(9)
+    MOVE 0.02 TO WS-PUNTOS(10)
+    MOVE 0.05 TO WS-PUNTOS(11)
+    MOVE 0.10 TO WS-PUNTOS(12)
+    MOVE 0.20 TO WS-PUNTOS(13)
+    MOVE 0.50 TO WS-PUNTOS(14)
+    MOVE 1 TO WS-PUNTOS(15)
+    MOVE 2 TO WS-PUNTOS(16)
+    MOVE 5 TO WS-PUNTOS(17)
+    MOVE 10 TO WS-PUNTOS(18)
+    MOVE 20 TO WS-PUNTOS(19)
+    MOVE 50 TO WS-PUNTOS(20)
+    MOVE 100 TO WS-PUNTOS(21)
+    MOVE 1000 TO WS-PUNTOS(22)
+    MOVE 5000 TO WS-PUNTOS(23)
+    .
+
+7200-PARTIR.
+    PERFORM VARYING WS-ITER FROM 1 BY 1 UNTIL WS-ITER > WS-MAX
+        COMPUTE WS-MID ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = (WS-LOW + WS-HIGH) / 2
+        MOVE WS-MID TO WS-TASA-EVAL
+        PERFORM 5000-EVALUAR
+        IF WS-FALLO-EVAL = 1
+            EXIT PERFORM
+        END-IF
+        MOVE WS-MID TO WS-R
+        IF WS-VPN = 0 OR (WS-HIGH - WS-LOW) <= WS-TOL
+            MOVE 1 TO WS-CONVERGIO
+            EXIT PERFORM
+        END-IF
+        IF (WS-NPV-LOW > 0 AND WS-VPN > 0)
+            OR (WS-NPV-LOW < 0 AND WS-VPN < 0)
+            MOVE WS-MID TO WS-LOW
+            MOVE WS-VPN TO WS-NPV-LOW
+        ELSE
+            MOVE WS-MID TO WS-HIGH
+        END-IF
+    END-PERFORM
+    .
+
+END PROGRAM fin-vpn-tir.

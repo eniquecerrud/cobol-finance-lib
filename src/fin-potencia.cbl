@@ -1,0 +1,181 @@
+>>SOURCE FORMAT FREE
+*> Potencia entera y raíz n-ésima en COMP-3.
+IDENTIFICATION DIVISION.
+PROGRAM-ID. fin-potencia IS INITIAL.
+
+ENVIRONMENT DIVISION.
+
+DATA DIVISION.
+WORKING-STORAGE SECTION.
+COPY "fin-estado.cpy".
+
+01 WS-ACUM                    PIC S9(20)V9(16) COMP-3.
+01 WS-BASE-POT                PIC S9(20)V9(16) COMP-3.
+01 WS-X                       PIC S9(20)V9(16) COMP-3.
+01 WS-X-NUEVA                 PIC S9(20)V9(16) COMP-3.
+01 WS-RESIDUO                 PIC S9(20)V9(16) COMP-3.
+01 WS-TOPE                    PIC S9(20)V9(16) COMP-3.
+01 WS-EXP                     PIC 9(5) COMP-5.
+01 WS-N                       PIC 9(5) COMP-5.
+01 WS-NM1                     PIC 9(5) COMP-5.
+01 WS-I                       PIC 9(5) COMP-5.
+01 WS-K                       PIC 9(5) COMP-5.
+01 WS-ABS-EXP                 PIC 9(5) COMP-5.
+
+LINKAGE SECTION.
+COPY "fin-potencia.cpy".
+
+PROCEDURE DIVISION USING FP-PARAMS.
+0000-MAIN.
+    PERFORM 1000-INICIALIZAR
+    EVALUATE FP-OPERACION
+        WHEN "POWI"
+            PERFORM 2000-POTENCIA
+        WHEN "RAIZ"
+            PERFORM 3000-RAIZ
+        WHEN OTHER
+            MOVE FIN-ERR-OPERACION TO FP-CODIGO
+            MOVE "Operacion desconocida en fin-potencia" TO FP-MENSAJE
+    END-EVALUATE
+    GOBACK.
+
+1000-INICIALIZAR.
+    MOVE FIN-OK TO FP-CODIGO
+    MOVE SPACES TO FP-MENSAJE
+    MOVE 0 TO FP-RESULTADO
+    .
+
+2000-POTENCIA.
+    IF FUNCTION ABS(FP-EXPONENTE) > FIN-MAX-EXPONENTE
+        MOVE FIN-ERR-PERIODOS TO FP-CODIGO
+        MOVE "Exponente fuera de rango" TO FP-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    IF FP-EXPONENTE < 0
+        MOVE FUNCTION ABS(FP-EXPONENTE) TO WS-ABS-EXP
+        IF FP-BASE = 0
+            MOVE FIN-ERR-TASA TO FP-CODIGO
+            MOVE "Division por cero en potencia negativa" TO FP-MENSAJE
+            EXIT PARAGRAPH
+        END-IF
+        MOVE FP-BASE TO WS-BASE-POT
+        MOVE WS-ABS-EXP TO WS-EXP
+        PERFORM 2100-POTENCIA-POSITIVA
+        IF FP-CODIGO NOT = FIN-OK
+            EXIT PARAGRAPH
+        END-IF
+        COMPUTE FP-RESULTADO ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = 1 / WS-ACUM
+            ON SIZE ERROR
+                MOVE FIN-ERR-DESBORDAMIENTO TO FP-CODIGO
+                MOVE "Desbordamiento al invertir la potencia" TO FP-MENSAJE
+                EXIT PARAGRAPH
+        END-COMPUTE
+    ELSE
+        MOVE FP-BASE TO WS-BASE-POT
+        MOVE FP-EXPONENTE TO WS-EXP
+        PERFORM 2100-POTENCIA-POSITIVA
+        IF FP-CODIGO NOT = FIN-OK
+            EXIT PARAGRAPH
+        END-IF
+        MOVE WS-ACUM TO FP-RESULTADO
+    END-IF
+    MOVE "Potencia entera" TO FP-MENSAJE
+    .
+
+*> WS-BASE-POT ** WS-EXP, exponente >= 0, resultado en WS-ACUM.
+2100-POTENCIA-POSITIVA.
+    MOVE 1 TO WS-ACUM
+    IF WS-EXP = 0
+        EXIT PARAGRAPH
+    END-IF
+    PERFORM VARYING WS-I FROM 1 BY 1 UNTIL WS-I > WS-EXP
+        COMPUTE WS-ACUM ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = WS-ACUM * WS-BASE-POT
+            ON SIZE ERROR
+                MOVE 0 TO WS-ACUM
+                MOVE FIN-ERR-DESBORDAMIENTO TO FP-CODIGO
+                MOVE "Desbordamiento en la potencia" TO FP-MENSAJE
+                EXIT PARAGRAPH
+        END-COMPUTE
+    END-PERFORM
+    .
+
+3000-RAIZ.
+    IF FP-EXPONENTE <= 0
+        MOVE FIN-ERR-ARGUMENTO TO FP-CODIGO
+        MOVE "El indice de la raiz debe ser positivo" TO FP-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    IF FP-EXPONENTE > FIN-MAX-EXPONENTE
+        MOVE FIN-ERR-PERIODOS TO FP-CODIGO
+        MOVE "Indice de la raiz fuera de rango" TO FP-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    IF FP-BASE < 0
+        MOVE FIN-ERR-ARGUMENTO TO FP-CODIGO
+        MOVE "Raiz de base negativa" TO FP-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    IF FP-BASE = 0
+        MOVE 0 TO FP-RESULTADO
+        MOVE "Raiz entera" TO FP-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    IF FP-EXPONENTE = 1
+        MOVE FP-BASE TO FP-RESULTADO
+        MOVE "Raiz entera" TO FP-MENSAJE
+        EXIT PARAGRAPH
+    END-IF
+    COMPUTE WS-X ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+        = 1 + (FP-BASE - 1) / FP-EXPONENTE
+    IF WS-X <= 0
+        MOVE 1 TO WS-X
+    END-IF
+    MOVE FP-EXPONENTE TO WS-N
+    SUBTRACT 1 FROM WS-N GIVING WS-NM1
+    PERFORM VARYING WS-K FROM 1 BY 1 UNTIL WS-K > 80
+        MOVE WS-X TO WS-BASE-POT
+        MOVE WS-NM1 TO WS-EXP
+        PERFORM 2100-POTENCIA-POSITIVA
+        IF FP-CODIGO NOT = FIN-OK
+            EXIT PARAGRAPH
+        END-IF
+        IF WS-ACUM = 0
+            MOVE FIN-ERR-TASA TO FP-CODIGO
+            MOVE "Potencia nula durante la raiz" TO FP-MENSAJE
+            EXIT PARAGRAPH
+        END-IF
+        COMPUTE WS-X-NUEVA ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = ((WS-NM1 * WS-X) + (FP-BASE / WS-ACUM)) / WS-N
+            ON SIZE ERROR
+                MOVE FIN-ERR-DESBORDAMIENTO TO FP-CODIGO
+                MOVE "Desbordamiento en la raiz" TO FP-MENSAJE
+                EXIT PARAGRAPH
+        END-COMPUTE
+        MOVE WS-X-NUEVA TO WS-BASE-POT
+        MOVE WS-N TO WS-EXP
+        PERFORM 2100-POTENCIA-POSITIVA
+        IF FP-CODIGO NOT = FIN-OK
+            EXIT PARAGRAPH
+        END-IF
+        COMPUTE WS-RESIDUO ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = FUNCTION ABS(WS-ACUM - FP-BASE)
+        COMPUTE WS-TOPE ROUNDED MODE IS NEAREST-AWAY-FROM-ZERO
+            = FUNCTION ABS(FP-BASE) * 0.000000000001
+        IF WS-TOPE < 0.000000000001
+            MOVE 0.000000000001 TO WS-TOPE
+        END-IF
+        IF WS-X-NUEVA = WS-X OR WS-RESIDUO <= WS-TOPE
+            MOVE WS-X-NUEVA TO FP-RESULTADO
+            MOVE "Raiz entera" TO FP-MENSAJE
+            EXIT PARAGRAPH
+        END-IF
+        MOVE WS-X-NUEVA TO WS-X
+    END-PERFORM
+    MOVE WS-X TO FP-RESULTADO
+    MOVE FIN-ERR-CONVERGENCIA TO FP-CODIGO
+    MOVE "La raiz no convergio" TO FP-MENSAJE
+    .
+
+END PROGRAM fin-potencia.
